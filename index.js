@@ -313,11 +313,11 @@ app.patch('/users/:id/role', async (req, res) => {
   })
 
 //static page user
-app.get('/dashboard-stats', verifyToken, async (req, res) => {
+app.get('/dashboard-stats',  async (req, res) => {
   try {
     const totalUsers = await userCollection.countDocuments({ role: 'donor' });
-    const totalDonationRequests = await donationRequestCollection.countDocuments();
-
+    const totalDonationRequests = await donationRequestCollection.estimatedDocumentCount();
+    console.log(totalUsers, totalDonationRequests);
     res.send({
       totalUsers,
       totalDonationRequests

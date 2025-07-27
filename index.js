@@ -48,7 +48,7 @@ async function run() {
   const donationRequestCollection = db.collection('donationRequests')
   const userCollection = db.collection('users')
    const blogCollection = db.collection('blogs');
-   const donorCollection = db.collection('donors');
+   
 
   try {
     // Generate jwt token
@@ -312,6 +312,21 @@ app.patch('/users/:id/role', async (req, res) => {
   res.send({role : result?.role})
   })
 
+//static page user
+app.get('/dashboard-stats', verifyToken, async (req, res) => {
+  try {
+    const totalUsers = await userCollection.countDocuments({ role: 'donor' });
+    const totalDonationRequests = await donationRequestCollection.countDocuments();
+
+    res.send({
+      totalUsers,
+      totalDonationRequests
+    });
+  } catch (error) {
+    console.error('Error in /dashboard-stats:', error);
+    res.status(500).send({ message: 'Server error' });
+  }
+});
 
 
 
@@ -355,6 +370,8 @@ app.delete('/blogs/:id', async (req, res) => {
 });
 
 
+
+
 //Funding plane
 //create a fund
 app.post('/create-fund',  async (req, res) => {
@@ -369,6 +386,20 @@ app.post('/create-fund',  async (req, res) => {
   const result = await fundingCollection.insertOne(fund);
   res.send(result);
 });
+
+//Get the Fund
+app.get('/funds',  async (req, res) => {
+  try {
+    const funds = await fundingCollection.find()
+      .sort({ date: -1 }) // newest first
+      .toArray();
+
+    res.send(funds);
+  } catch (error) {
+    res.status(500).send({ message: 'Failed to fetch funds', error });
+  }
+});
+
 
 
 

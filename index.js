@@ -109,7 +109,7 @@ async function run() {
     }) 
     
 // --- ROUTES ---
-
+//Donor plane
 
 // Get max 3 recent donation requests for logged-in donor
 app.get('/requests/recent', verifyToken, async (req, res) => {
@@ -127,6 +127,29 @@ app.get('/requests/recent', verifyToken, async (req, res) => {
   }
 });
 
+
+// POST: Create a donation request
+app.post('/create-donation-request', async (req, res) => {
+  try {
+    const request = req.body;
+    console.log(request);
+    // check if the requester is blocked
+    const user = await userCollection.findOne({ email: request.requesterEmail });
+    if (!user || user.status === 'blocked') {
+      return res.status(403).send({ message: 'Access denied. You are blocked.' });
+    }
+
+    // add status = 'pending' by default
+    request.status = 'pending';
+
+    const result = await donationRequestCollection.insertOne(request);
+    console.log(result);
+    res.send(result);
+  } catch (err) {
+    console.error('Error creating donation request:', err);
+    res.status(500).send({ message: 'Server error' });
+  }
+});
 
 // Update donation request status: only allowed transitions
 app.put('/requests/:id/status', verifyToken, async (req, res) => {
@@ -148,6 +171,7 @@ app.put('/requests/:id/status', verifyToken, async (req, res) => {
     res.status(500).send({ message: 'Error updating status', error });
   }
 });
+
 
 
 // 1. Get 3 recent donation requests for logged-in donor
@@ -181,7 +205,7 @@ app.get('/donation-requests/:id', verifyToken, async (req, res) => {
   }
 });
 
-
+// ✅ Update donation request by ID
 app.put('/donation-requests/:id', verifyToken, async (req, res) => {
   try {
     const id = req.params.id;
@@ -214,137 +238,25 @@ app.delete('/donation-requests/:id', verifyToken, async (req, res) => {
 
 
 
+//Admin plane
 
 
 
-// 2. Update donation status (done or canceled)
-// app.put('/donation-requests/:id/status', async (req, res) => {
-//   try {
-//     const id = req.params.id;
-//     const { status } = req.body;
-//     if (!['done', 'canceled'].includes(status)) {
-//       return res.status(400).json({ message: 'Invalid status update' });
-//     }
-
-//     const request = await donationRequestsCollection.findOne({ _id: ObjectId(id) });
-//     if (!request) return res.status(404).json({ message: 'Request not found' });
-
-//     if (request.donationStatus !== 'inprogress') {
-//       return res.status(400).json({ message: 'Status can only be changed from inprogress' });
-//     }
-
-//     await donationRequestsCollection.updateOne(
-//       { _id: ObjectId(id) },
-//       { $set: { donationStatus: status } }
-//     );
-
-//     res.json({ message: 'Status updated' });
-
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
-
-// 3. Delete donation request
-// app.delete('/donation-requests/:id', async (req, res) => {
-//   try {
-//     const id = req.params.id;
-//     const donorId = req.user._id;
-
-//     const request = await donationRequestsCollection.findOne({ _id: ObjectId(id) });
-//     if (!request) return res.status(404).json({ message: 'Request not found' });
-
-//     if (request.donorId !== donorId) {
-//       return res.status(403).json({ message: 'Not authorized to delete' });
-//     }
-
-//     await donationRequestsCollection.deleteOne({ _id: ObjectId(id) });
-//     res.json({ message: 'Deleted successfully' });
-
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
-
-// 4. Get single donation request (for edit)
-// app.get('/donation-requests/:id', async (req, res) => {
-//   try {
-//     const id = req.params.id;
-//     const donorId = req.user._id;
-
-//     const request = await donationRequestsCollection.findOne({ _id: ObjectId(id) });
-//     if (!request) return res.status(404).json({ message: 'Request not found' });
-
-//     if (request.donorId !== donorId) {
-//       return res.status(403).json({ message: 'Not authorized' });
-//     }
-
-//     res.json(request);
-
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
-
-// 5. Update donation request (edit)
-// app.put('/donation-requests/:id', async (req, res) => {
-//   try {
-//     const id = req.params.id;
-//     const donorId = req.user._id;
-//     const updateData = req.body;
-
-//     const request = await donorCollection.findOne({ _id: ObjectId(id) });
-//     if (!request) return res.status(404).json({ message: 'Request not found' });
-
-//     if (request.donorId !== donorId) {
-//       return res.status(403).json({ message: 'Not authorized' });
-//     }
-
-//     await donorCollection.updateOne(
-//       { _id: ObjectId(id) },
-//       { $set: updateData }
-//     );
-
-//     res.json({ message: 'Updated successfully' });
-
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
-
-
-// POST: Create a donation request
-app.post('/create-donation-request', async (req, res) => {
+ //1. GET all user
+app.get('/users', async (req, res) => {
   try {
-    const request = req.body;
-    console.log(request);
-    // check if the requester is blocked
-    const user = await userCollection.findOne({ email: request.requesterEmail });
-    if (!user || user.status === 'blocked') {
-      return res.status(403).send({ message: 'Access denied. You are blocked.' });
+    const status = req.query.status || 'all';
+    let query = {};
+    if (status !== 'all') {
+      query.status = status;
     }
 
-    // add status = 'pending' by default
-    request.status = 'pending';
-
-    const result = await donationRequestCollection.insertOne(request);
-    console.log(result);
-    res.send(result);
+    const users = await userCollection.find(query).toArray();
+    res.send({ users });
   } catch (err) {
-    console.error('Error creating donation request:', err);
-    res.status(500).send({ message: 'Server error' });
+    res.status(500).send({ message: 'Failed to fetch users' });
   }
 });
-
-
 
   //user status
   app.patch('/users/:id/status', async (req, res) => {
@@ -399,6 +311,8 @@ app.patch('/users/:id/role', async (req, res) => {
   if(!result) return res.status(404).send({message: 'User Not Found'})
   res.send({role : result?.role})
   })
+
+
 
 
   // GET all blogs

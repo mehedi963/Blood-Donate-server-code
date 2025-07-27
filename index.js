@@ -355,6 +355,24 @@ app.delete('/blogs/:id', async (req, res) => {
 });
 
 
+//Funding plane
+//create a fund
+app.post('/create-fund',  async (req, res) => {
+  const { name, email, amount } = req.body;
+  const fund = {
+    name,
+    email,
+    amount,
+    date: new Date(),
+    status: 'success'
+  };
+  const result = await fundingCollection.insertOne(fund);
+  res.send(result);
+});
+
+
+
+
     
 
 

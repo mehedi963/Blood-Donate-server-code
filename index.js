@@ -330,6 +330,35 @@ app.get('/dashboard-stats',  async (req, res) => {
 
 
 
+// GET all donation requests (Admin only)
+app.get('/all-donation-requests', verifyToken,  async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+    const user = await userCollection.findOne({ email: userEmail });
+
+    if (!user || user.role !== 'admin') {
+      return res.status(403).send({ message: 'Forbidden: Admins only' });
+    }
+
+    const { status } = req.query;
+    let query = {};
+
+    // Filter by status if provided (except 'all')
+    if (status && status !== 'all') {
+      query.donationStatus = status;
+    }
+
+    const result = await donationRequestCollection.find(query).sort({ _id: -1 }).toArray();
+    res.send(result);
+  } catch (error) {
+    console.error('Error fetching all donation requests:', error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+});
+
+
+
+
   // GET all blogs
 app.get('/blogs', async (req, res) => {
   const status = req.query.status || 'all';

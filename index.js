@@ -181,22 +181,25 @@ app.get('/donation-requests/:id', verifyToken, async (req, res) => {
   }
 });
 
-// ✅ Update donation request (edit or status change)
+
 app.put('/donation-requests/:id', verifyToken, async (req, res) => {
   try {
     const id = req.params.id;
-    const updateDoc = {
-      $set: req.body // full update or status update (e.g., donationStatus)
-    };
+    const updateData = { ...req.body };
+    delete updateData._id; // Prevent trying to modify _id
+
     const result = await donationRequestCollection.updateOne(
       { _id: new ObjectId(id) },
-      updateDoc
+      { $set: updateData }
     );
+
     res.send(result);
-  } catch {
+  } catch (error) {
+    console.error('Error updating request:', error);
     res.status(500).send({ message: 'Update failed' });
   }
 });
+
 
 // ✅ Delete donation request
 app.delete('/donation-requests/:id', verifyToken, async (req, res) => {

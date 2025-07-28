@@ -529,14 +529,15 @@ app.post('/blogs', async (req, res) => {
     thumbnail: req.body.thumbnail,
     content: req.body.content,
     status: 'draft',
-    createdAt: new Date()
+       createdAt: new Date(),
+    
   };
   const result = await blogCollection.insertOne(blog);
   res.send(result);
 });
 
 // PATCH update status (admin only)
-app.patch('/blogs/:id/status', async (req, res) => {
+app.patch('/blogs/:id/status', verifyToken, async (req, res) => {
   const id = req.params.id;
   const { status } = req.body;
   const result = await blogCollection.updateOne(
@@ -584,6 +585,21 @@ app.get('/funds',  async (req, res) => {
   }
 });
 
+
+
+//public blogs pages
+//GEt all published data
+app.get('/blog', async (req, res) => {
+  const status = req.query.status || 'published';
+  const blogs = await blogCollection.find({ status }).sort({ createdAt: -1 }).toArray();
+  res.send(blogs);
+});
+
+//Get single published data
+app.get('/blog/:id', async (req, res) => {
+  const blog = await blogCollection.findOne({ _id: new ObjectId(req.params.id) });
+  res.send(blog);
+});
 
 
 

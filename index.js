@@ -47,7 +47,8 @@ async function run() {
   const bloodCollection = db.collection('bloods')
   const donationRequestCollection = db.collection('donationRequests')
   const userCollection = db.collection('users')
-   const blogCollection = db.collection('blogs');
+  const blogCollection = db.collection('blogs');
+  const contactCollection = db.collection('blogs');
    
 
   try {
@@ -336,7 +337,7 @@ app.get('/all-donation-requests', verifyToken,  async (req, res) => {
     const userEmail = req.user.email;
     const user = await userCollection.findOne({ email: userEmail });
 
-    if (!user || user.role !== 'admin') {
+    if (!user || user.role !== 'admin' && user.role !== 'volunteer' ) {
       return res.status(403).send({ message: 'Forbidden: Admins only' });
     }
 
@@ -345,8 +346,9 @@ app.get('/all-donation-requests', verifyToken,  async (req, res) => {
 
     // Filter by status if provided (except 'all')
     if (status && status !== 'all') {
-      query.donationStatus = status;
+      query.status = status;
     }
+    
 
     const result = await donationRequestCollection.find(query).sort({ _id: -1 }).toArray();
     res.send(result);
@@ -355,6 +357,105 @@ app.get('/all-donation-requests', verifyToken,  async (req, res) => {
     res.status(500).send({ message: 'Internal server error' });
   }
 });
+
+// Update donation status (done or canceled)
+app.put('/donation-requests/:id/status', verifyToken, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { status } = req.body;
+
+    if (!['done', 'canceled'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status update' });
+    }
+
+    const request = await donationRequestCollection.findOne({ _id: new ObjectId(id) });
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    if (request.donationStatus !== 'inprogress') {
+      return res.status(400).json({ message: 'Status can only be changed from inprogress' });
+    }
+
+    await donationRequestCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { donationStatus: status } }
+    );
+
+    res.json({ message: 'Status updated' });
+  } catch (error) {
+    console.error('Error updating donation status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+
+//Search Donor
+app.get('/search-donors', async (req, res) => {
+  try {
+    const { bloodGroup, district, upazila } = req.query;
+
+    // Check if all required fields are present
+    if (!bloodGroup || !district || !upazila) {
+      return res.status(400).send({ message: 'Missing required query parameters' });
+    }
+
+    // Convert district ID to number if it's stored as number in DB
+    const districtId = parseInt(district);
+
+    // Find donors with matching blood group, district ID, and upazila
+    const donors = await userCollection.find({
+      role: 'donor',
+      status: 'active',
+      bloodGroup: bloodGroup,
+      district: districtId,
+      upazila: upazila
+    }).project({ password: 0 }).toArray();
+
+    // Read district name from JSON to return readable location
+    const districtsPath = path.join(__dirname, 'data', 'districts.json'); // adjust path if needed
+    const districtsData = JSON.parse(fs.readFileSync(districtsPath, 'utf-8'));
+    const matchedDistrict = districtsData.find(d => d.id === districtId);
+    const districtName = matchedDistrict?.name || '';
+
+    // Add readable district name to response
+    const enrichedDonors = donors.map(donor => ({
+      ...donor,
+      districtName
+    }));
+
+    res.send(enrichedDonors);
+  } catch (error) {
+    console.error('Error in /search-donors:', error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+//Contact
+app.post('/contact', async (req, res) => {
+  try {
+    const { name, email,contact, message } = req.body;
+     if (!name || !email || !message || !contact) {
+      return res.status(400).send({ message: 'All fields are required' });
+    }
+    const contactData = {
+      name,
+      email,
+      contact,
+      message,
+    };
+
+    const result = await contactCollection.insertOne(contactData);
+
+    res.send({ message: 'Message sent successfully', insertedId: result.insertedId });
+  } catch (error) {
+    console.error('Error saving contact message:', error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+
 
 
 

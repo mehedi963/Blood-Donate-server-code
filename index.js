@@ -129,18 +129,19 @@ app.get('/requests/recent', verifyToken, async (req, res) => {
 });
 
 
+
 // POST: Create a donation request
 app.post('/create-donation-request', async (req, res) => {
   try {
     const request = req.body;
     console.log(request);
-    // check if the requester is blocked
+    
     const user = await userCollection.findOne({ email: request.requesterEmail });
     if (!user || user.status === 'blocked') {
       return res.status(403).send({ message: 'Access denied. You are blocked.' });
     }
 
-    // add status = 'pending' by default
+    
     request.status = 'pending';
 
     const result = await donationRequestCollection.insertOne(request);
@@ -151,6 +152,19 @@ app.post('/create-donation-request', async (req, res) => {
     res.status(500).send({ message: 'Server error' });
   }
 });
+
+// filter by status
+app.get('/create-donation-request',  async (req, res) => {
+  try {
+    const { status } = req.query;
+    const result = await donationRequestCollection.find({status : "pending"}).toArray();
+    console.log(result);
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to fetch donation requests' });
+  }
+});
+
 
 // Update donation request status: only allowed transitions
 app.put('/requests/:id/status', verifyToken, async (req, res) => {

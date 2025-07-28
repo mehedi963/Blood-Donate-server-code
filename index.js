@@ -165,6 +165,46 @@ app.get('/create-donation-request',  async (req, res) => {
   }
 });
 
+//GET a single donation request
+app.get('/create-donation-request/:id', verifyToken, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const request = await donationRequestCollection.findOne({ _id: new ObjectId(id) });
+    if (!request) return res.status(404).send({ message: 'Request not found' });
+
+    res.send(request);
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to fetch request details' });
+  }
+});
+
+//confirm & update donation status
+app.patch('/create-donation/confirm/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { donorName, donorEmail } = req.body;
+
+    const result = await donationRequestCollection.updateOne(
+      { _id: new ObjectId(id), status: 'pending' },
+      {
+        $set: {
+          status: 'inprogress',
+          donorName,
+          donorEmail,
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (err) {
+    res.status(500).send({ error: 'Failed to confirm donation' });
+  }
+});
+
+
+
+
+
 
 // Update donation request status: only allowed transitions
 app.put('/requests/:id/status', verifyToken, async (req, res) => {
